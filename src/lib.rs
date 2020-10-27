@@ -28,13 +28,17 @@ impl SecretKey {
         }
     }
 
+    pub fn blind_sign(&self, blinded_message: &G1Projective) -> Signature {
+        Signature { s: blinded_message * self.x }
+    }
+
     pub fn sign(&self, message: &[u8]) -> Signature {
         let h = G1Projective::hash_from_bytes::<Sha512>(message);
         Signature { s: h * self.x }
     }
 }
 
-pub struct PublicKey{
+pub struct PublicKey {
     p_pub: G2Projective,
 }
 
@@ -75,19 +79,52 @@ impl Keypair {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn sign_verify() {
-        let mut rng = rand::thread_rng();
+pub struct BlsBlind {
+    r: Scalar,
+    pub(crate) blinded_message: G1Projective
+}
 
-        for i in 0..500 {
-            let keypair = Keypair::generate(&mut rng);
-            let message = format!("Message {}", i);
-            let sig = keypair.sign(&message.as_bytes());
-            assert_eq!(keypair.verify(&message.as_bytes(), &sig), true);
-        }
+impl BlsBlind {
+    pub fn new<R: RngCore>(csrng: R, message: &[u8], _public: &PublicKey) -> Self {
+        let h = G1Projective::hash_from_bytes::<Sha512>(message); // XXX: add public key
+        let r = Scalar::random(csrng);
+        let r_inv = r.invert().unwrap(); // do something here, buy a lottery ticket
+        Self {r,
+            blinded_message: h * r_inv }
+    }
+
+    pub fn unblind(self, signature: Signature) -> Signature {
+        Signature { s: signature.s * self.r }
+    }
+
+    pub fn to_string(&self) -> String {
+        self.blinded_message.to_string()
+    }
+}
+
+#[test]
+fn sign_verify() {
+    let mut rng = rand::thread_rng();
+
+    for i in 0..500 {
+        let keypair = Keypair::generate(&mut rng);
+        let message = format!("Message {}", i);
+        let sig = keypair.sign(&message.as_bytes());
+        assert_eq!(keypair.verify(&message.as_bytes(), &sig), true);
+    }
+}
+
+#[test]
+fn test_blind_sign_verify() {
+    let mut rng = rand::thread_rng();
+
+    for i in 0 ..500 {
+        let keypair = Keypair::generate(&mut rng);
+        let message = format!("Blinded message {}", i);
+        let user = BlsBlind::new(&mut rng, message.as_bytes(), &keypair.public);
+        let blinded_signature = keypair.secret.blind_sign(&user.blinded_message);
+        let signature = user.unblind(blinded_signature);
+        assert!(keypair.verify(message.as_bytes(), &signature))
     }
 }
