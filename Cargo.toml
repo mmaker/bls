@@ -1,5 +1,5 @@
 [package]
-authors = ["Jack Grigg <str4d@i2pmail.org>"]
+authors = ["Jack Grigg <str4d@i2pmail.org>", "Michele Orrù <michele.orru@berkeley.edu>"]
 description = "BLS signatures"
 documentation = "https://github.com/str4d/bls"
 homepage = "https://github.com/str4d/bls"
@@ -9,8 +9,9 @@ repository = "https://github.com/str4d/bls"
 version = "0.0.1"
 
 [dependencies]
-rand = "0.3"
-
-[dependencies.pairing]
-git = "https://github.com/mmaker/pairing"
-branch = "feature/hashing"
+rand = "0.7.3"
+rand_core = "0.5.1"
+bls12_381 = {git="https://github.com/mmaker/bls12_381.git", branch="hash-into-curve"}
+digest = "0.9.0"
+sha2 = "0.9.1"
+ff = "0.8.0"
